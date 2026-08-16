@@ -1,13 +1,13 @@
 server:
-  port: 8052
+  port: ${SERVER_PORT:8052}
 
 spring:
   application:
     name: dashboard-management-service
   datasource:
-    url: jdbc:postgresql://localhost:5432/iotmining
-    username: postgres
-    password: 8506
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/iotmining}
+    username: ${SPRING_DATASOURCE_USERNAME:postgres}
+    password: ${SPRING_DATASOURCE_PASSWORD:8506}
     hikari:
       pool-name: LoginServicePool
       maximum-pool-size: 10
@@ -17,26 +17,28 @@ spring:
       max-lifetime: 1800000
   jpa:
     hibernate:
-      ddl-auto: update
+      ddl-auto: ${SPRING_JPA_HIBERNATE_DDL_AUTO:update}
     show-sql: true
     database: postgresql
 
-#minio:
-#  url: http://localhost:9000
-#  access-key: minioadmin
-#  secret-key: minioadmin
-#  bucket: iotmining-rms
-
+# --- External Services ---
 services:
   device-service:
-    url: http://localhost:8081
+    url: ${SERVICES_DEVICE_SERVICE_URL:http://localhost:8055}
   device-profile-service:
-    url: http://localhost:8082
+    url: ${SERVICES_DEVICE_PROFILE_SERVICE_URL:http://localhost:8056}
+  # ADDED: This matches the Feign Client url="${services.object-storage-service.url}"
+  object-storage-service:
+    url: ${SERVICES_OBJECT_STORAGE_SERVICE_URL:http://localhost:8060}
 
+# Legacy/Backup configuration (Corrected port from 8060 to 8085)
 objectstorage:
-  url: http://localhost:8101
+  url: ${OBJECTSTORAGE_URL:http://localhost:8060}
 
+jwt:
+  secret: "Vlo2vcFdiXGgWqZLEpLw6kk99sH8/4odgC2XgZV0IbA="
 
+# --- Feign ---
 feign:
   client:
     config:

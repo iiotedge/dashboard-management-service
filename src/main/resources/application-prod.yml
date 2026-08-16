@@ -29,12 +29,12 @@ spring:
 
 services:
   device-service:
-    url: http://localhost:8081
+    url: ${DEVICE_MANAGEMENT_SERVICE_URL:http://localhost:9055}
   device-profile-service:
-    url: http://localhost:8082
+    url: ${DEVICE_PROFILE_SERVICE_URL:http://localhost:9056}
 
 objectstorage:
-  url: http://localhost:8101
+  url: ${OBJECT_STORAGE_SERVICE_URL:http://localhost:9060}
 
 
 feign:

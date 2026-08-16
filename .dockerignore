@@ -1,0 +1,4 @@
+# Keep the build context small and avoid ever baking local secrets/state
+# into an image layer - only target/dashboard-management-service.jar is needed.
+*
+!target/dashboard-management-service.jar

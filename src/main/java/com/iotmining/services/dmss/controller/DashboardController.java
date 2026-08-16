@@ -5,6 +5,7 @@ import com.iotmining.services.dmss.service.DashboardService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.*;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -18,6 +19,7 @@ public class DashboardController {
     private final DashboardService dashboardService;
 
     @PostMapping("/create")
+    @PreAuthorize("@dashboardSecurity.canAccessTenant(authentication, #tenantId)")
     public ResponseEntity<?> createDashboard(
             @RequestParam(name = "tenantId") String tenantId,
             @RequestBody DashboardDto dto
@@ -34,6 +36,7 @@ public class DashboardController {
     }
 
     @PostMapping("/save")
+    @PreAuthorize("@dashboardSecurity.canAccessTenant(authentication, #tenantId)")
     public ResponseEntity<?> saveDashboard(
             @RequestParam(name = "tenantId") String tenantId,
             @RequestParam(name = "dashboardId", required = false) String dashboardId, // allow missing dashboardId for new
@@ -51,6 +54,7 @@ public class DashboardController {
     }
 
     @GetMapping("/get")
+    @PreAuthorize("@dashboardSecurity.canAccessTenant(authentication, #tenantId)")
     public ResponseEntity<?> getDashboard(
             @RequestParam(name = "tenantId") String tenantId,
             @RequestParam(name = "dashboardId") String dashboardId
@@ -67,12 +71,14 @@ public class DashboardController {
     }
 
     @GetMapping("/list")
+    @PreAuthorize("@dashboardSecurity.canAccessTenant(authentication, #tenantId)")
     public ResponseEntity<?> listDashboardsForTenant(@RequestParam(name = "tenantId") String tenantId) {
         List<DashboardDto> dashboards = dashboardService.listDashboardsForTenant(tenantId);
         return ResponseEntity.ok(dashboards);
     }
 
     @GetMapping("/presigned")
+    @PreAuthorize("@dashboardSecurity.canAccessTenant(authentication, #tenantId)")
     public ResponseEntity<?> getDashboardPresignedUrl(
             @RequestParam(name = "tenantId") String tenantId,
             @RequestParam(name = "dashboardId") String dashboardId,
