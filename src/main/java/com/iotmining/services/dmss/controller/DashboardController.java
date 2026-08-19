@@ -28,6 +28,8 @@ public class DashboardController {
         try {
             Map<String, Object> result = dashboardService.createDashboard(tenantId, dto);
             return ResponseEntity.ok(result);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of("error", e.getMessage()));
         } catch (Exception e) {
             log.error("Failed to create dashboard for tenantId={}, title={}: {}", tenantId, dto.getTitle(), e.getMessage(), e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)

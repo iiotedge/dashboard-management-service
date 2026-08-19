@@ -32,13 +32,27 @@ public class DashboardService {
     public Map<String, Object> createDashboard(String tenantId, DashboardDto dto) {
         String dashboardId = dto.getId() != null ? dto.getId() : UUID.randomUUID().toString();
 
+        // DashboardMetadata.id has no @GeneratedValue - it's an application-assigned
+        // String primary key, so Spring Data JPA's save() treats a non-null id as
+        // "not new" and merges/updates instead of inserting. Without this check, a
+        // caller could supply the id of a dashboard belonging to a DIFFERENT tenant
+        // (e.g. one they learned from a shared link or log line) and this would
+        // silently overwrite that row's tenantId/title/objectUrl with their own,
+        // hijacking another tenant's dashboard metadata rather than failing.
+        if (metadataRepository.existsById(dashboardId)) {
+            throw new IllegalArgumentException("A dashboard with id " + dashboardId + " already exists");
+        }
+
         String objectUrl = String.format("%s/%s/UI/dashboard/%s.json", tenantId, dashboardId, dashboardId);
 
         DashboardMetadata meta = new DashboardMetadata();
         meta.setId(dashboardId);
         meta.setTenantId(tenantId);
         meta.setTitle(dto.getTitle());
-        meta.setCreatedTime(dto.getCreatedTime());
+        // Map.of() below throws NPE on any null value - a caller who doesn't
+        // supply createdTime (it's optional in DashboardDto, no validation
+        // requires it) would get a 500 instead of a created dashboard.
+        meta.setCreatedTime(dto.getCreatedTime() != null ? dto.getCreatedTime() : OffsetDateTime.now().toString());
         meta.setAssignedCustomers(dto.getAssignedCustomers());
         meta.setIsPublic(dto.getIsPublic() != null ? dto.getIsPublic() : false);
         meta.setVersion(dto.getVersion());
@@ -82,86 +96,6 @@ public class DashboardService {
         );
     }
 
-//    public Map<String, Object> saveDashboard(
-//            String tenantId, String dashboardId, String dashboardJson) throws Exception {
-//
-//        String finalDashboardId = (dashboardId == null || dashboardId.isBlank())
-//                ? UUID.randomUUID().toString()
-//                : dashboardId;
-//
-//        log.info("[saveDashboard] Called with tenantId={}, dashboardId={}, payloadSize={} bytes",
-//                tenantId, finalDashboardId, dashboardJson != null ? dashboardJson.length() : 0);
-//
-//        MultipartFile file = new CustomMultipartFile(
-//                finalDashboardId + ".json",
-//                finalDashboardId + ".json",
-//                "application/json",
-//                dashboardJson.getBytes(StandardCharsets.UTF_8)
-//        );
-//        log.debug("Created CustomMultipartFile for dashboard '{}', filename='{}'", finalDashboardId, finalDashboardId + ".json");
-//
-//        // Upload to Minio/object storage
-//        Map<String, Object> result = objectStorageClient.uploadSimple(
-//                file,
-//                tenantId,
-//                finalDashboardId,
-//                DASHBOARD_OBJECT_TYPE,
-//                DASHBOARD_CATEGORY,
-//                86400
-//        );
-//
-//        ObjectMapper mapper = new ObjectMapper();
-//        DashboardDto dto = mapper.readValue(dashboardJson, DashboardDto.class);
-//        String nowIso = OffsetDateTime.now().toString();
-//
-//        // Save metadata to Postgres
-//        DashboardMetadata meta = new DashboardMetadata();
-//        meta.setId(finalDashboardId);
-//        meta.setTenantId(tenantId);
-//        meta.setTitle(dto.getTitle());
-//        meta.setCreatedTime(dto.getCreatedTime() != null ? dto.getCreatedTime() : nowIso);
-//        meta.setAssignedCustomers(dto.getAssignedCustomers());
-//        meta.setIsPublic(dto.getIsPublic() != null ? dto.getIsPublic() : false);
-//        meta.setVersion(dto.getVersion());
-//        meta.setObjectUrl((String) result.getOrDefault("objectUrl", String.format("%s/%s/%s/%s/%s.json", tenantId, finalDashboardId, DASHBOARD_CATEGORY, DASHBOARD_OBJECT_TYPE, finalDashboardId)));
-//        meta.setObjectSize(file.getSize());
-//        meta.setFileName(file.getOriginalFilename());
-//        meta.setLastUpdatedTime(nowIso);
-//
-//        metadataRepository.save(meta);
-//
-//        Map<String, Object> response = new HashMap<>(result);
-//        response.put("dashboardId", finalDashboardId);
-//        response.put("objectUrl", meta.getObjectUrl());
-//        response.put("objectSize", meta.getObjectSize());
-//        response.put("fileName", meta.getFileName());
-//        response.put("lastUpdatedTime", meta.getLastUpdatedTime());
-//        log.info("Dashboard uploaded and metadata saved for tenantId={}, dashboardId={}", tenantId, finalDashboardId);
-//        return response;
-//    }
-
-//    public String getDashboard(
-//            String tenantId, String dashboardId) throws Exception {
-//        log.info("[getDashboard] Fetching for tenantId={}, dashboardId={}", tenantId, dashboardId);
-//        try {
-//            DashboardMetadata meta = metadataRepository.findByIdAndTenantId(dashboardId, tenantId)
-//                    .orElseThrow(() -> new RuntimeException("Dashboard metadata not found!"));
-//            String objectUrl = meta.getObjectUrl();
-//            if (objectUrl == null || objectUrl.isEmpty())
-//                throw new RuntimeException("Dashboard object URL missing in metadata");
-//
-//            // Only use object storage for download
-//            org.springframework.core.io.Resource resource =
-//                    objectStorageClient.downloadSimpleObject(objectUrl);
-//            String dashboard = new String(resource.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
-//            log.info("Dashboard fetched from object storage: tenantId={}, dashboardId={}, size={} bytes",
-//                    tenantId, dashboardId, dashboard.length());
-//            return dashboard;
-//        } catch (Exception e) {
-//            log.error("Failed to fetch dashboard for tenantId={}, dashboardId={}: {}", tenantId, dashboardId, e.getMessage(), e);
-//            throw e;
-//        }
-//    }
     public String getDashboard(String tenantId, String dashboardId) throws Exception {
         log.info("[getDashboard] Fetching for tenantId={}, dashboardId={}", tenantId, dashboardId);
 
@@ -270,124 +204,3 @@ public class DashboardService {
         return dto;
     }
 }
-
-//package com.iotmining.services.dmss.service;
-//
-//import com.fasterxml.jackson.databind.ObjectMapper;
-//import com.iotmining.services.dmss.client.ObjectStorageClient;
-//import com.iotmining.services.dmss.dto.DashboardDto;
-//import com.iotmining.services.dmss.util.CustomMultipartFile;
-//import lombok.RequiredArgsConstructor;
-//import lombok.extern.slf4j.Slf4j;
-//import org.springframework.stereotype.Service;
-//import org.springframework.web.multipart.MultipartFile;
-//
-//import java.nio.charset.StandardCharsets;
-//import java.util.*;
-//
-//@Service
-//@RequiredArgsConstructor
-//@Slf4j
-//public class DashboardService {
-//    private final ObjectStorageClient objectStorageClient;
-//
-//    private static final String DASHBOARD_OBJECT_TYPE = "dashboard";
-//    private static final String DASHBOARD_CATEGORY = "UI";
-//
-//    public Map<String, Object> saveDashboard(
-//            String tenantId, String dashboardId, String dashboardJson) throws Exception {
-//
-//        String finalDashboardId = (dashboardId == null || dashboardId.isBlank())
-//                ? UUID.randomUUID().toString()
-//                : dashboardId;
-//
-//        log.info("[saveDashboard] Called with tenantId={}, dashboardId={}, payloadSize={} bytes",
-//                tenantId, finalDashboardId, dashboardJson != null ? dashboardJson.length() : 0);
-//
-//        try {
-//            MultipartFile file = new CustomMultipartFile(
-//                    finalDashboardId + ".json",
-//                    finalDashboardId + ".json",
-//                    "application/json",
-//                    dashboardJson.getBytes(StandardCharsets.UTF_8)
-//            );
-//            log.debug("Created CustomMultipartFile for dashboard '{}', filename='{}'", finalDashboardId, finalDashboardId + ".json");
-//
-//            // Use uploadSimple (calls /upload-simple endpoint in object storage service)
-//            Map<String, Object> result = objectStorageClient.uploadSimple(
-//                    file,
-//                    tenantId,
-//                    finalDashboardId,    // dashboardId used as objectId
-//                    DASHBOARD_OBJECT_TYPE,
-//                    DASHBOARD_CATEGORY,
-//                    86400
-//            );
-//            Map<String, Object> response = new HashMap<>(result);
-//            response.put("dashboardId", finalDashboardId);
-//            log.info("Dashboard uploaded to object storage (no date/time in path) for tenantId={}, dashboardId={}", tenantId, finalDashboardId);
-//            return response;
-//        } catch (Exception e) {
-//            log.error("Failed to save dashboard for tenantId={}, dashboardId={}: {}", tenantId, finalDashboardId, e.getMessage(), e);
-//            throw e;
-//        }
-//    }
-//
-//    public String getDashboard(
-//            String tenantId, String dashboardId) throws Exception {
-//        log.info("[getDashboard] Fetching for tenantId={}, dashboardId={}", tenantId, dashboardId);
-//        try {
-//            org.springframework.core.io.Resource resource =
-//                    objectStorageClient.downloadLatestObject(tenantId, dashboardId, DASHBOARD_OBJECT_TYPE);
-//            String dashboard = new String(resource.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
-//            log.info("Dashboard fetched from object storage: tenantId={}, dashboardId={}, size={} bytes",
-//                    tenantId, dashboardId, dashboard.length());
-//            return dashboard;
-//        } catch (Exception e) {
-//            log.error("Failed to fetch dashboard for tenantId={}, dashboardId={}: {}", tenantId, dashboardId, e.getMessage(), e);
-//            throw e;
-//        }
-//    }
-//
-//    public String getDashboardPresignedUrl(
-//            String tenantId, String dashboardId, int expiry) throws Exception {
-//        log.info("[getDashboardPresignedUrl] Requesting for tenantId={}, dashboardId={}, expiry={}",
-//                tenantId, dashboardId, expiry);
-//        try {
-//            Map<String, String> map = objectStorageClient.getLatestPresigned(tenantId, dashboardId, DASHBOARD_OBJECT_TYPE, expiry);
-//            String url = map.get("url");
-//            log.info("Presigned URL fetched: tenantId={}, dashboardId={}, url={}", tenantId, dashboardId, url);
-//            return url;
-//        } catch (Exception e) {
-//            log.error("Failed to fetch presigned URL for tenantId={}, dashboardId={}: {}", tenantId, dashboardId, e.getMessage(), e);
-//            throw e;
-//        }
-//    }
-//
-//    public List<DashboardDto> listDashboardsForTenant(String tenantId) {
-//        List<DashboardDto> dashboardList = new ArrayList<>();
-//        try {
-//            // 1. List all dashboard JSON object keys for this tenant
-//            List<String> objectKeys = objectStorageClient.listSimpleObjects(
-//                    tenantId,
-//                    DASHBOARD_OBJECT_TYPE,
-//                    DASHBOARD_CATEGORY
-//            );
-//            ObjectMapper objectMapper = new ObjectMapper();
-//            for (String key : objectKeys) {
-//                try {
-//                    // 2. Download and parse JSON content
-//                    org.springframework.core.io.Resource resource = objectStorageClient.downloadSimpleObject(key);
-//                    String json = new String(resource.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
-//                    DashboardDto dto = objectMapper.readValue(json, DashboardDto.class);
-//                    dashboardList.add(dto);
-//                } catch (Exception ex) {
-//                    log.warn("Failed to parse dashboard at {}: {}", key, ex.getMessage());
-//                }
-//            }
-//            log.info("Listed {} dashboards for tenantId={}", dashboardList.size(), tenantId);
-//        } catch (Exception e) {
-//            log.error("Failed to list dashboards for tenantId={}: {}", tenantId, e.getMessage(), e);
-//        }
-//        return dashboardList;
-//    }
-//}

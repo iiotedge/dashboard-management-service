@@ -1,13 +1,18 @@
 server:
-  port: 9052
+  port: ${SERVER_PORT:9052}
 
 spring:
   application:
     name: dashboard-management-service
   datasource:
-    url: jdbc:postgresql://localhost:5432/iotmining
-    username: postgres
-    password: 8506
+    # No local-dev fallback here (unlike application-dev.yml) - matches
+    # tenant-management-service/device-management-service's own prod
+    # profiles. A real deployment must supply these; silently falling back
+    # to a hardcoded localhost/postgres/8506 would mean this profile could
+    # never actually reach a real production database in the first place.
+    url: ${SPRING_DATASOURCE_URL}
+    username: ${SPRING_DATASOURCE_USERNAME}
+    password: ${SPRING_DATASOURCE_PASSWORD}
     hikari:
       pool-name: LoginServicePool
       maximum-pool-size: 10
@@ -17,25 +22,38 @@ spring:
       max-lifetime: 1800000
   jpa:
     hibernate:
-      ddl-auto: update
+      ddl-auto: ${SPRING_JPA_HIBERNATE_DDL_AUTO:update}
     show-sql: true
     database: postgresql
-
-#minio:
-#  url: http://localhost:9000
-#  access-key: minioadmin
-#  secret-key: minioadmin
-#  bucket: iotmining-rms
 
 services:
   device-service:
     url: ${DEVICE_MANAGEMENT_SERVICE_URL:http://localhost:9055}
   device-profile-service:
     url: ${DEVICE_PROFILE_SERVICE_URL:http://localhost:9056}
+  # This is the property ObjectStorageClient's @FeignClient actually reads
+  # (services.object-storage-service.url) - it was missing here entirely,
+  # so in a real prod deployment the Feign client would fall back to its
+  # own hardcoded (and also wrong) localhost:8085 default. Every dashboard
+  # save/get/presigned-URL call - this service's core feature - would have
+  # failed against a service that was never actually running there.
+  object-storage-service:
+    url: ${SERVICES_OBJECT_STORAGE_SERVICE_URL:http://localhost:9060}
 
+# Legacy key - nothing in this service's code reads "objectstorage.url"
+# (ObjectStorageClient's @FeignClient reads services.object-storage-service.url,
+# set above). Left in case something external still depends on it existing,
+# but services.object-storage-service.url above is the one that matters.
 objectstorage:
   url: ${OBJECT_STORAGE_SERVICE_URL:http://localhost:9060}
 
+# Required - no fallback. The base application.yml's jwt.secret has a
+# dev-only default (a known, published value); without overriding it here,
+# prod would silently validate tokens signed with a publicly-visible key
+# if this env var were ever left unset. Same fix already applied on
+# tenant-management-service's prod profile for the identical reason.
+jwt:
+  secret: ${JWT_SECRET_KEY_BASE64}
 
 feign:
   client:

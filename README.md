@@ -20,8 +20,10 @@ tenant-scoped dashboard metadata plus the dashboard JSON payload itself
   bearer token and builds the `Authentication` from its claims; tokens
   are issued by auth-service and shared across services via a common
   signing secret.
-- **CORS** via a standalone `CorsFilter` bean (`CorsConfig`), independent
-  of Spring Security's own CORS integration.
+- **CORS** via a dev-only `CorsConfigurationSource` bean (`CorsConfig`,
+  `@Primary`) that `SecurityConfig` wires into Spring Security's own CORS
+  integration; absent in prod, where the gateway/Nginx already adds CORS
+  headers for this service's routes.
 
 ## Running locally
 

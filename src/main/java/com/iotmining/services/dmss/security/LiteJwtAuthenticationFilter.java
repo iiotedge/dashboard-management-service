@@ -57,10 +57,16 @@ public class LiteJwtAuthenticationFilter extends OncePerRequestFilter {
                     .parseSignedClaims(token)
                     .getPayload();
 
-            // 2. Extract roles directly from the token payload
-            List<String> roles = claims.get("role", List.class);
-            List<SimpleGrantedAuthority> authorities = roles == null ? List.of() :
-                    roles.stream().map(SimpleGrantedAuthority::new).collect(Collectors.toList());
+            // 2. Extract roles directly from the token payload. Read the raw claim
+            // and check its runtime type rather than claims.get("role", List.class) -
+            // JJWT's typed getter throws instead of converting for some JSON array
+            // shapes (observed with an empty array), which would silently drop this
+            // entire authentication attempt in the catch block below rather than
+            // just fail to find any roles.
+            Object rolesClaim = claims.get("role");
+            List<SimpleGrantedAuthority> authorities = rolesClaim instanceof java.util.Collection<?> rawRoles
+                    ? rawRoles.stream().map(String::valueOf).map(SimpleGrantedAuthority::new).collect(Collectors.toList())
+                    : List.of();
 
             // 3. Create a lightweight Authentication object.
             // We pass the entire 'claims' object as the Principal so our Evaluator can read it easily!

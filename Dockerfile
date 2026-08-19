@@ -50,9 +50,9 @@ COPY --from=builder /app/extracted/application/ ./
 # way /dev/random can under load - a well-known JVM-in-a-container gotcha.
 ENV JAVA_TOOL_OPTIONS="-XX:MaxRAMPercentage=75.0 -XX:+UseZGC -Dfile.encoding=UTF-8 -Duser.timezone=UTC -Djava.security.egd=file:/dev/./urandom" \
     SPRING_PROFILES_ACTIVE=prod \
-    SERVER_PORT=8052
+    SERVER_PORT=9052
 
-EXPOSE 8052
+EXPOSE 9052
 
 # No Docker-level HEALTHCHECK: distroless has no shell/curl/wget to run one
 # from. /actuator/health (already exposed) is meant to be probed by the
