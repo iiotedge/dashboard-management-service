@@ -35,7 +35,14 @@ public class CorsConfig {
                 "http://localhost:3002"
         ));
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS"));
-        configuration.setAllowedHeaders(Arrays.asList("Authorization", "Cache-Control", "Content-Type"));
+        // Matches device-management-service's own allow-list. The frontend's
+        // standard auth interceptor sends Authorization + X-Tenant-ID + X-User-ID
+        // on every request (X-Auth-Token on some) - this list was missing all
+        // three, so the browser's preflight came back without them in
+        // Access-Control-Allow-Headers and blocked the real request before it
+        // ever fired, surfacing as a CORS error on every dashboards call.
+        configuration.setAllowedHeaders(Arrays.asList(
+                "Authorization", "Cache-Control", "Content-Type", "X-Auth-Token", "X-Tenant-ID", "X-User-ID"));
         configuration.setAllowCredentials(true);
         configuration.setMaxAge(3600L);
 
