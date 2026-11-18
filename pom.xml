@@ -11,7 +11,7 @@
     <parent>
         <groupId>com.iiotedge.build</groupId>
         <artifactId>iiotedge-parent</artifactId>
-        <version>2025.08.18</version>
+        <version>2026.11.18</version>
         <relativePath/>
     </parent>
 
@@ -36,7 +36,7 @@
             <dependency>
                 <groupId>com.iiotedge.build</groupId>
                 <artifactId>iiotedge-bom</artifactId>
-                <version>2025.08.18</version>
+                <version>2026.11.18</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -57,7 +57,7 @@
         </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-web</artifactId>
+            <artifactId>spring-boot-starter-webmvc</artifactId>
         </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>
@@ -104,16 +104,24 @@
             <artifactId>postgresql</artifactId>
             <scope>runtime</scope>
         </dependency>
+        <!-- DashboardService builds its own Jackson 2 ObjectMapper for the stored dashboard
+             JSON. Boot 4's webmvc starter only brings Jackson 3 (tools.jackson), so Jackson 2
+             is declared explicitly instead of relying on a transitive path (version from
+             Boot's jackson-2-bom). -->
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-databind</artifactId>
+        </dependency>
         <dependency>
             <groupId>org.projectlombok</groupId>
             <artifactId>lombok</artifactId>
             <optional>true</optional>
         </dependency>
-
+        <!-- Version now comes from Spring Boot (Spring Security 7.0.x); the explicit
+             7.0.2 pin predates the Boot 4 move and mixed Security 7 with Security 6. -->
         <dependency>
             <groupId>org.springframework.security</groupId>
             <artifactId>spring-security-oauth2-jose</artifactId>
-            <version>7.0.2</version>
         </dependency>
 
         <dependency>
